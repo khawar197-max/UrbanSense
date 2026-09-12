@@ -1,38 +1,124 @@
+```python
 import streamlit as st
+import pandas as pd
 import json
+from datetime import datetime
 from groq import Groq
 
 # ============================================================
-# UrbanSense - AI Municipal Complaint Intelligence
+# UrbanSense
+# AI-Powered Municipal Complaint Intelligence Platform
 # ============================================================
 
 st.set_page_config(
     page_title="UrbanSense",
     page_icon="🏙️",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# ============================================================
+# Custom Styling
+# ============================================================
+
+st.markdown(
+    """
+    <style>
+    .main-title {
+        font-size: 42px;
+        font-weight: 700;
+        margin-bottom: 0px;
+    }
+
+    .subtitle {
+        font-size: 18px;
+        color: #666;
+        margin-bottom: 25px;
+    }
+
+    .priority-critical {
+        color: #b71c1c;
+        font-weight: bold;
+    }
+
+    .priority-high {
+        color: #e65100;
+        font-weight: bold;
+    }
+
+    .priority-medium {
+        color: #f57f17;
+        font-weight: bold;
+    }
+
+    .priority-low {
+        color: #2e7d32;
+        font-weight: bold;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
 )
 
 # ============================================================
 # Header
 # ============================================================
 
-st.title("🏙️ UrbanSense")
-st.subheader("AI-Powered Municipal Complaint Intelligence")
+st.markdown(
+    '<div class="main-title">🏙️ UrbanSense</div>',
+    unsafe_allow_html=True
+)
+
+st.markdown(
+    '<div class="subtitle">'
+    'AI-Powered Municipal Complaint Intelligence Platform'
+    '</div>',
+    unsafe_allow_html=True
+)
 
 st.write(
-    "UrbanSense uses AI to analyze citizen complaints, "
-    "identify the problem category, assess priority, "
-    "identify the responsible department, and recommend action."
+    "Transform citizen complaints into structured municipal intelligence "
+    "for faster prioritization, departmental coordination, and "
+    "data-driven public service delivery."
 )
 
 st.divider()
+
+# ============================================================
+# Sidebar
+# ============================================================
+
+st.sidebar.title("🏙️ UrbanSense")
+
+st.sidebar.write(
+    "Municipal AI Decision Support"
+)
+
+page = st.sidebar.radio(
+    "Navigation",
+    [
+        "📝 Submit Complaint",
+        "📊 Dashboard",
+        "📋 Complaint History",
+        "🤖 AI Municipal Report"
+    ]
+)
+
+st.sidebar.divider()
+
+st.sidebar.info(
+    "UrbanSense is a prototype developed for "
+    "AI innovation and municipal service delivery."
+)
 
 # ============================================================
 # Groq API
 # ============================================================
 
 try:
-    client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+    client = Groq(
+        api_key=st.secrets["GROQ_API_KEY"]
+    )
 except Exception:
     st.error(
         "Groq API key is not configured. "
@@ -40,12 +126,46 @@ except Exception:
     )
     st.stop()
 
+# ============================================================
+# Categories
+# ============================================================
+
+CATEGORIES = [
+    "Sanitation",
+    "Sewerage/Drainage",
+    "Roads",
+    "Streetlights",
+    "Water Supply",
+    "Encroachment",
+    "Parks",
+    "Property/Tax",
+    "Other"
+]
+
+PRIORITIES = [
+    "Critical",
+    "High",
+    "Medium",
+    "Low"
+]
+
+DEPARTMENTS = [
+    "Sanitation Department",
+    "Engineering Department",
+    "Sewerage/Drainage Department",
+    "Streetlight Department",
+    "Water Supply Department",
+    "Encroachment Department",
+    "Parks Department",
+    "Property/Tax Department",
+    "General Municipal Services"
+]
 
 # ============================================================
 # AI Complaint Analyzer
 # ============================================================
 
-def analyze_complaint(complaint):
+def analyze_complaint(complaint, user_location):
 
     response = client.chat.completions.create(
         model="openai/gpt-oss-20b",
@@ -53,31 +173,49 @@ def analyze_complaint(complaint):
             {
                 "role": "system",
                 "content": """
-You are UrbanSense, an AI municipal service assistant.
+You are UrbanSense, an AI municipal service intelligence assistant.
 
 Analyze citizen complaints and return ONLY valid JSON.
 
-Use these categories:
+Allowed categories:
 Sanitation, Sewerage/Drainage, Roads, Streetlights,
 Water Supply, Encroachment, Parks, Property/Tax, Other.
 
-Priority must be:
-Critical, High, Medium, or Low.
+Allowed priorities:
+Critical, High, Medium, Low.
 
-Do not invent a location if it is not provided.
+Identify the most appropriate municipal department.
 
-Keep the problem summary and recommended action
-practical and concise.
+Do not invent a location.
+
+If the citizen provides a location separately, use that location.
+
+Keep the problem summary concise.
+
+Keep the recommended action practical and suitable
+for municipal staff.
+
+Return exactly these fields:
+category
+priority
+department
+location
+problem_summary
+recommended_action
 """
             },
             {
                 "role": "user",
                 "content": f"""
-Analyze this citizen complaint:
+Citizen complaint:
 
 {complaint}
 
-Return exactly this JSON structure:
+User-provided location:
+
+{user_location}
+
+Return exactly:
 
 {{
     "category": "",
@@ -102,130 +240,60 @@ Return exactly this JSON structure:
 
 
 # ============================================================
-# Complaint Form
+# Session State - Complaint Database
 # ============================================================
 
-st.header("📝 Submit a Municipal Complaint")
+if "complaints" not in st.session_state:
 
-complaint = st.text_area(
-    "Describe the municipal problem",
-    placeholder=(
-        "Example: There is a large amount of garbage "
-        "near a school and it has not been removed for three days."
-    ),
-    height=150
-)
-
-location = st.text_input(
-    "Location",
-    placeholder="Example: Military Road"
-)
-
-# ============================================================
-# Analyze Complaint
-# ============================================================
-
-if st.button("🔍 Analyze Complaint", type="primary"):
-
-    if not complaint.strip():
-
-        st.warning("Please enter a complaint first.")
-
-    else:
-
-        with st.spinner("UrbanSense is analyzing the complaint..."):
-
-            result = analyze_complaint(complaint)
-
-        if result:
-
-            st.success("Complaint analyzed successfully!")
-
-            st.divider()
-
-            # ------------------------------------------------
-            # Main Information
-            # ------------------------------------------------
-
-            col1, col2, col3 = st.columns(3)
-
-            with col1:
-                st.metric(
-                    "Category",
-                    result.get("category", "N/A")
-                )
-
-            with col2:
-                st.metric(
-                    "Priority",
-                    result.get("priority", "N/A")
-                )
-
-            with col3:
-                st.metric(
-                    "Department",
-                    result.get("department", "N/A")
-                )
-
-            # ------------------------------------------------
-            # Location
-            # ------------------------------------------------
-
-            st.subheader("📍 Location")
-
-            ai_location = result.get("location", "")
-
-            if (
-                not ai_location
-                or ai_location.lower() == "not specified"
-            ):
-                ai_location = (
-                    location if location.strip()
-                    else "Not specified"
-                )
-
-            st.write(ai_location)
-
-            # ------------------------------------------------
-            # Problem Summary
-            # ------------------------------------------------
-
-            st.subheader("📋 Problem Summary")
-
-            st.write(
-                result.get(
-                    "problem_summary",
-                    "No summary available."
-                )
-            )
-
-            # ------------------------------------------------
-            # Recommended Action
-            # ------------------------------------------------
-
-            st.subheader("🛠️ Recommended Action")
-
-            st.info(
-                result.get(
-                    "recommended_action",
-                    "No recommendation available."
-                )
-            )
-
-        else:
-
-            st.error(
-                "UrbanSense could not process the complaint. "
-                "Please try again."
-            )
-
-
-# ============================================================
-# Footer
-# ============================================================
-
-st.divider()
-
-st.caption(
-    "UrbanSense | AI-powered municipal service intelligence"
-)
+    demo_data = [
+        {
+            "complaint_id": "US-1001",
+            "date": "2026-09-10",
+            "complaint": "Garbage has accumulated near the school for three days.",
+            "category": "Sanitation",
+            "priority": "High",
+            "department": "Sanitation Department",
+            "location": "Military Road",
+            "problem_summary": "Garbage accumulation near a school.",
+            "recommended_action": "Arrange immediate waste collection and inspect the area.",
+            "status": "Pending"
+        },
+        {
+            "complaint_id": "US-1002",
+            "date": "2026-09-10",
+            "complaint": "Sewage water is overflowing onto the road near the market.",
+            "category": "Sewerage/Drainage",
+            "priority": "Critical",
+            "department": "Sewerage/Drainage Department",
+            "location": "Market Area",
+            "problem_summary": "Sewage overflow affecting road users.",
+            "recommended_action": "Inspect the drainage line and remove the blockage immediately.",
+            "status": "In Progress"
+        },
+        {
+            "complaint_id": "US-1003",
+            "date": "2026-09-09",
+            "complaint": "Several streetlights are not working at night.",
+            "category": "Streetlights",
+            "priority": "Medium",
+            "department": "Streetlight Department",
+            "location": "Airport Road",
+            "problem_summary": "Multiple streetlights are non-functional.",
+            "recommended_action": "Inspect and repair or replace defective streetlight units.",
+            "status": "Pending"
+        },
+        {
+            "complaint_id": "US-1004",
+            "date": "2026-09-09",
+            "complaint": "A large pothole is causing problems for vehicles.",
+            "category": "Roads",
+            "priority": "High",
+            "department": "Engineering Department",
+            "location": "Sindhi Society",
+            "problem_summary": "Large road pothole creating a traffic hazard.",
+            "recommended_action": "Inspect the road and carry out urgent pothole repair.",
+            "status": "Resolved"
+        },
+        {
+            "complaint_id": "US-1005",
+```
