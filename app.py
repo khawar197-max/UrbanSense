@@ -680,86 +680,105 @@ elif page == "📊 Dashboard":
 elif page == "📋 Complaint History":
 
     st.header("📋 Complaint History")
+    st.write("View complaints and update their current status.")
 
-    df = get_dataframe()
+    # Convert complaints to dataframe
+    df = pd.DataFrame(st.session_state.complaints)
 
+    # Filters
     col1, col2, col3 = st.columns(3)
 
     with col1:
-
-        selected_category = st.selectbox(
+        category_filter = st.selectbox(
             "Category",
-            ["All"] + sorted(
-                df["category"]
-                .dropna()
-                .unique()
-                .tolist()
-            )
+            ["All"] + sorted(df["category"].unique().tolist())
         )
 
     with col2:
-
-        selected_priority = st.selectbox(
+        priority_filter = st.selectbox(
             "Priority",
-            ["All"] + PRIORITIES
+            ["All"] + sorted(df["priority"].unique().tolist())
         )
 
     with col3:
-
-        selected_status = st.selectbox(
+        status_filter = st.selectbox(
             "Status",
-            [
-                "All",
-                "Pending",
-                "In Progress",
-                "Resolved"
-            ]
+            ["All", "Pending", "In Progress", "Resolved"]
         )
 
-    filtered = df.copy()
+    # Apply filters
+    filtered_df = df.copy()
 
-    if selected_category != "All":
-
-        filtered = filtered[
-            filtered["category"]
-            == selected_category
+    if category_filter != "All":
+        filtered_df = filtered_df[
+            filtered_df["category"] == category_filter
         ]
 
-    if selected_priority != "All":
-
-        filtered = filtered[
-            filtered["priority"]
-            == selected_priority
+    if priority_filter != "All":
+        filtered_df = filtered_df[
+            filtered_df["priority"] == priority_filter
         ]
 
-    if selected_status != "All":
-
-        filtered = filtered[
-            filtered["status"]
-            == selected_status
+    if status_filter != "All":
+        filtered_df = filtered_df[
+            filtered_df["status"] == status_filter
         ]
 
-    st.write(
-        f"Showing **{len(filtered)}** complaints"
-    )
-
-    display_columns = [
-        "complaint_id",
-        "date",
-        "complaint",
-        "category",
-        "priority",
-        "department",
-        "location",
-        "status"
-    ]
+    st.subheader("Complaint Records")
 
     st.dataframe(
-        filtered[display_columns],
+        filtered_df,
         use_container_width=True,
         hide_index=True
     )
 
+    # Status Management
+    st.divider()
+    st.subheader("🔄 Update Complaint Status")
+
+    complaint_ids = df["complaint_id"].tolist()
+
+    selected_id = st.selectbox(
+        "Select Complaint ID",
+        complaint_ids
+    )
+
+    selected_complaint = next(
+        item for item in st.session_state.complaints
+        if item["complaint_id"] == selected_id
+    )
+
+    st.write(
+        f"**Complaint:** {selected_complaint['complaint']}"
+    )
+
+    st.write(
+        f"**Current Status:** {selected_complaint['status']}"
+    )
+
+    new_status = st.selectbox(
+        "New Status",
+        ["Pending", "In Progress", "Resolved"],
+        index=[
+            "Pending",
+            "In Progress",
+            "Resolved"
+        ].index(selected_complaint["status"])
+    )
+
+    if st.button("Update Status", type="primary"):
+
+        for item in st.session_state.complaints:
+
+            if item["complaint_id"] == selected_id:
+                item["status"] = new_status
+                break
+
+        st.success(
+            f"{selected_id} status updated to **{new_status}**."
+        )
+
+        st.rerun()
 
 # ============================================================
 # PAGE 4 - AI MUNICIPAL REPORT
